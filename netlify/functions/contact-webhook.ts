@@ -210,6 +210,30 @@ export const handler: Handler = async (event: HandlerEvent) => {
 
     const deal = await pipedriveRequest<{ id: number }>("POST", "/deals", dealBody);
 
+    // Step 5b: Backoffice activity
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const activityNote = [
+      "Neue Anfrage über das Kontaktformular.",
+      "",
+      `Gutachtenart: ${data.gutachtenart || "–"}`,
+      `Anlass: ${data.anlass || "–"}`,
+      `Objektadresse: ${data.address || "–"}`,
+      "",
+      "Bitte Kontakt aufnehmen und Anliegen qualifizieren.",
+    ].join("\n");
+
+    await pipedriveRequest("POST", "/activities", {
+      subject: `Lead kontaktieren: ${data.name}`,
+      type: "task",
+      deal_id: deal.id,
+      person_id: personId,
+      user_id: 25671674,
+      due_date: today,
+      due_time: "",
+      note: activityNote,
+      done: 0,
+    });
+
     // Step 6: Note (only when message is present)
     if (data.message?.trim()) {
       await pipedriveRequest("POST", "/notes", {
