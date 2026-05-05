@@ -309,6 +309,16 @@ function TweakSelect({ label, value, options, onChange }) {
 
 const { useState, useEffect, useRef } = React;
 
+function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < breakpoint);
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < breakpoint);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, [breakpoint]);
+  return isMobile;
+}
+
 const SVB_DEFAULTS = {
   primaryHue: 220,
   primarySaturation: 0.16,
@@ -357,6 +367,9 @@ function SVBDigital() {
     body: `'${tweaks.bodyFont}', system-ui, -apple-system, 'Helvetica Neue', sans-serif`,
   };
 
+  const isMobile = useIsMobile();
+  const [menuOpen, setMenuOpen] = useState(false);
+
   const [formData, setFormData] = useState({
     name: "", email: "", phone: "", address: "",
     gutachtenart: "", anlass: "", message: "", dsgvo: false,
@@ -395,9 +408,9 @@ function SVBDigital() {
       {/* NAV */}
       <nav style={{
         position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
-        background: navSolid ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0)",
-        backdropFilter: navSolid ? "saturate(160%) blur(14px)" : "none",
-        borderBottom: navSolid ? `1px solid ${C.border}` : "1px solid transparent",
+        background: navSolid || menuOpen ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0)",
+        backdropFilter: navSolid || menuOpen ? "saturate(160%) blur(14px)" : "none",
+        borderBottom: navSolid || menuOpen ? `1px solid ${C.border}` : "1px solid transparent",
         transition: "all 0.3s ease",
       }}>
         <div style={{
@@ -419,23 +432,67 @@ function SVBDigital() {
               }}>by sunside ai</span>
             </div>
           </div>
-          <div style={{ display: "flex", gap: 32, alignItems: "center" }}>
-            {["Leistungen", "Ablauf", "Erreichbarkeit", "Kontakt"].map((item, i) => (
-              <a key={i} href={`#${item.toLowerCase()}`} style={{
-                color: C.inkSoft, textDecoration: "none", fontSize: 14, fontWeight: 500,
-                letterSpacing: "0.01em", transition: "color 0.2s",
-              }}
-              onMouseEnter={e => e.target.style.color = C.primary}
-              onMouseLeave={e => e.target.style.color = C.inkSoft}>{item}</a>
-            ))}
-            <a href="tel:+4940123456789" style={{
-              background: C.primary, color: "#fff",
-              padding: "10px 18px", borderRadius: 10,
-              textDecoration: "none", fontSize: 13, fontWeight: 600,
-              boxShadow: `0 6px 18px ${C.primaryShadow}`,
-            }}>+49 40 123 456 789</a>
-          </div>
+
+          {isMobile ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <a href="tel:+4940123456789" style={{
+                background: C.primary, color: "#fff",
+                padding: "9px 14px", borderRadius: 10,
+                textDecoration: "none", fontSize: 13, fontWeight: 600,
+                boxShadow: `0 4px 12px ${C.primaryShadow}`,
+              }}>Anrufen</a>
+              <button onClick={() => setMenuOpen(o => !o)} style={{
+                background: "none", border: `1px solid ${C.border}`,
+                borderRadius: 8, padding: "8px 10px", cursor: "pointer",
+                color: C.ink, display: "flex", flexDirection: "column",
+                gap: 4, alignItems: "center",
+              }}>
+                <span style={{ display: "block", width: 18, height: 2, background: C.ink, borderRadius: 2, transition: "all 0.2s",
+                  transform: menuOpen ? "rotate(45deg) translate(4px, 4px)" : "none" }} />
+                <span style={{ display: "block", width: 18, height: 2, background: C.ink, borderRadius: 2, transition: "all 0.2s",
+                  opacity: menuOpen ? 0 : 1 }} />
+                <span style={{ display: "block", width: 18, height: 2, background: C.ink, borderRadius: 2, transition: "all 0.2s",
+                  transform: menuOpen ? "rotate(-45deg) translate(4px, -4px)" : "none" }} />
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: "flex", gap: 32, alignItems: "center" }}>
+              {["Leistungen", "Ablauf", "Erreichbarkeit", "Kontakt"].map((item, i) => (
+                <a key={i} href={`#${item.toLowerCase()}`} style={{
+                  color: C.inkSoft, textDecoration: "none", fontSize: 14, fontWeight: 500,
+                  letterSpacing: "0.01em", transition: "color 0.2s",
+                }}
+                onMouseEnter={e => e.target.style.color = C.primary}
+                onMouseLeave={e => e.target.style.color = C.inkSoft}>{item}</a>
+              ))}
+              <a href="tel:+4940123456789" style={{
+                background: C.primary, color: "#fff",
+                padding: "10px 18px", borderRadius: 10,
+                textDecoration: "none", fontSize: 13, fontWeight: 600,
+                boxShadow: `0 6px 18px ${C.primaryShadow}`,
+              }}>+49 40 123 456 789</a>
+            </div>
+          )}
         </div>
+
+        {/* Mobile dropdown menu */}
+        {isMobile && menuOpen && (
+          <div style={{
+            borderTop: `1px solid ${C.border}`,
+            padding: "12px 24px 20px",
+            display: "flex", flexDirection: "column", gap: 4,
+          }}>
+            {["Leistungen", "Ablauf", "Erreichbarkeit", "Kontakt"].map((item, i) => (
+              <a key={i} href={`#${item.toLowerCase()}`}
+                onClick={() => setMenuOpen(false)}
+                style={{
+                  color: C.inkSoft, textDecoration: "none", fontSize: 16,
+                  fontWeight: 500, padding: "10px 0",
+                  borderBottom: i < 3 ? `1px solid ${C.border}` : "none",
+                }}>{item}</a>
+            ))}
+          </div>
+        )}
       </nav>
 
       {/* HERO */}
@@ -458,10 +515,10 @@ function SVBDigital() {
         }} />
 
         <div style={{
-          maxWidth: 1200, margin: "0 auto", padding: "120px 24px 80px",
+          maxWidth: 1200, margin: "0 auto", padding: isMobile ? "100px 20px 60px" : "120px 24px 80px",
           position: "relative", zIndex: 1,
           display: "grid",
-          gridTemplateColumns: tweaks.heroVariant === "split" ? "1.1fr 0.9fr" : "1fr",
+          gridTemplateColumns: (!isMobile && tweaks.heroVariant === "split") ? "1.1fr 0.9fr" : "1fr",
           gap: 56, alignItems: "center",
         }}>
           <div>
@@ -492,7 +549,7 @@ function SVBDigital() {
             </h1>
 
             <p style={{
-              fontSize: 18, lineHeight: 1.65,
+              fontSize: isMobile ? 16 : 18, lineHeight: 1.65,
               color: C.inkSoft, maxWidth: 560, margin: "0 0 36px",
             }}>
               Verkehrswertgutachten, Beleihungswertgutachten und Schadensgutachten —
@@ -505,7 +562,7 @@ function SVBDigital() {
               <GhostBtn C={C} href="tel:+4940123456789">Jetzt anrufen →</GhostBtn>
             </div>
 
-            <div style={{ display: "flex", gap: 40, marginTop: 56, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: isMobile ? 24 : 40, marginTop: isMobile ? 36 : 56, flexWrap: "wrap" }}>
               {[
                 { num: "20+",    label: "Jahre Erfahrung" },
                 { num: "2.500+", label: "Gutachten erstellt" },
@@ -522,7 +579,7 @@ function SVBDigital() {
             </div>
           </div>
 
-          {tweaks.heroVariant === "split" && <HeroFigure C={C} FONT={FONT} />}
+          {!isMobile && tweaks.heroVariant === "split" && <HeroFigure C={C} FONT={FONT} />}
         </div>
       </section>
 
@@ -561,8 +618,8 @@ function SVBDigital() {
         FONT={FONT} background={C.surfaceAlt}>
         <div style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-          gap: 0, position: "relative",
+          gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(5, 1fr)",
+          gap: isMobile ? 8 : 0, position: "relative",
         }}>
           {[
             { nr: "01", title: "Anfrage",      desc: "Sie kontaktieren uns per Formular, Telefon oder Chat." },
@@ -586,7 +643,7 @@ function SVBDigital() {
               <p style={{ fontSize: 13, lineHeight: 1.6, color: C.inkMuted, margin: 0 }}>
                 {step.desc}
               </p>
-              {i < arr.length - 1 && (
+              {!isMobile && i < arr.length - 1 && (
                 <div style={{
                   position: "absolute", top: 26, right: -8,
                   color: C.borderStrong, fontSize: 18,
@@ -602,7 +659,7 @@ function SVBDigital() {
         title="Drei Wege zu uns — rund um die Uhr"
         subtitle="Ob per Formular, Chat oder Telefon — wir sind für Sie da. Auch außerhalb der Geschäftszeiten."
         FONT={FONT}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: 16 }}>
           {[
             { icon: "✉", title: "Kontaktformular",
               desc: "Beschreiben Sie Ihr Anliegen und wir melden uns innerhalb von 24 Stunden.",
@@ -626,7 +683,7 @@ function SVBDigital() {
           background: C.surface,
           border: `1px solid ${C.border}`,
           borderRadius: 20,
-          padding: "40px 36px",
+          padding: isMobile ? "24px 20px" : "40px 36px",
           boxShadow: `0 24px 60px -32px ${C.primaryShadow}`,
         }}>
           {formStatus === "success" ? (
@@ -648,7 +705,7 @@ function SVBDigital() {
             </div>
           ) : (
             <div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
                 <InputField C={C} FONT={FONT} label="Name *" value={formData.name}
                   onChange={v => handleChange("name", v)} placeholder="Ihr vollständiger Name" />
                 <InputField C={C} FONT={FONT} label="Telefon *" value={formData.phone}
@@ -732,13 +789,14 @@ function SVBDigital() {
 
       {/* FOOTER */}
       <footer style={{
-        padding: "40px 24px", borderTop: `1px solid ${C.border}`,
+        padding: isMobile ? "32px 20px" : "40px 24px", borderTop: `1px solid ${C.border}`,
         background: C.surface,
       }}>
         <div style={{
           maxWidth: 1200, margin: "0 auto",
-          display: "flex", justifyContent: "space-between", alignItems: "center",
-          flexWrap: "wrap", gap: 24,
+          display: "flex", justifyContent: "space-between", alignItems: isMobile ? "flex-start" : "center",
+          flexDirection: isMobile ? "column" : "row",
+          flexWrap: "wrap", gap: isMobile ? 20 : 24,
         }}>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
@@ -892,13 +950,14 @@ function GhostBtn({ C, href, children }) {
 }
 
 function Section({ id, C, eyebrow, title, subtitle, FONT, background, narrow, children }) {
+  const isMobile = useIsMobile();
   return (
     <section id={id} style={{
-      padding: "100px 24px",
+      padding: isMobile ? "64px 20px" : "100px 24px",
       background: background || "transparent",
     }}>
       <div style={{ maxWidth: narrow ? 720 : 1200, margin: "0 auto" }}>
-        <div style={{ textAlign: "center", marginBottom: 56 }}>
+        <div style={{ textAlign: "center", marginBottom: isMobile ? 36 : 56 }}>
           <span style={{
             fontSize: 11, fontWeight: 700, color: C.primary,
             letterSpacing: "0.16em", textTransform: "uppercase",
