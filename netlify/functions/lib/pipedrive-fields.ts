@@ -1,5 +1,4 @@
-import fs from "fs";
-import path from "path";
+import stateData from "../../../data/hsb-sandbox-state.json";
 
 interface FieldOption {
   id: number;
@@ -32,20 +31,8 @@ interface SandboxState {
   person_fields: { custom: CustomField[] };
 }
 
-let _state: SandboxState | null = null;
-
 export function loadState(): SandboxState {
-  if (_state) return _state;
-  const file = path.join(__dirname, "../../../data/hsb-sandbox-state.json");
-  const raw = fs.readFileSync(file, "utf8");
-  const parsed = JSON.parse(raw) as SandboxState;
-  if (!parsed.timestamp) {
-    throw new Error(
-      "State-Datei nicht initialisiert. Bitte ausführen: node scripts/check-hsb-sandbox-v3.js"
-    );
-  }
-  _state = parsed;
-  return _state;
+  return stateData as SandboxState;
 }
 
 export function dealField(name: string): CustomField {
