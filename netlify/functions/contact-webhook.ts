@@ -21,10 +21,6 @@ const DEAL_FIELD_ADRESSE = "39a208a45af41741213be5cf85178e077cd906e0";
 const DEAL_FIELD_AUFTRAGSINHALT = "3d669162df7fb03a9affc1a50bfaade5feb80a19";
 const DEAL_FIELD_ANLASS = "bdd7ab892a3f9ffcd9b51cedd1d66179aaec93f3";
 
-// Person custom field keys
-const PERSON_FIELD_DATENSCHUTZ = "16cec5607e3db7185f0543c48106ed8f73b5ee78";
-const PERSON_FIELD_EMPFEHLUNG = "17b3461fc7a670d60c69b1fb3f28cfb79d17af49";
-
 // Option ID mappings
 const AUFTRAGSINHALT_MAP: Record<string, number> = {
   "Verkehrswertgutachten": 43,
@@ -174,8 +170,6 @@ export const handler: Handler = async (event: HandlerEvent) => {
         name: data.name,
         phone: [{ value: data.phone, primary: true }],
         visible_to: 3,
-        [PERSON_FIELD_DATENSCHUTZ]: 73, // Ja
-        [PERSON_FIELD_EMPFEHLUNG]: 71,  // Website
       };
       if (data.email) {
         personBody["email"] = [{ value: data.email, primary: true }];
