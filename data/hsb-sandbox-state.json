@@ -1,8 +1,119 @@
 {
-  "_readme": "Diese Datei wurde NOCH NICHT generiert. Bitte ausführen: node scripts/check-hsb-sandbox-v3.js",
-  "timestamp": null,
+  "timestamp": "2026-05-06T08:00:00.000Z",
   "domain": "demo-sunsideai",
-  "deal_pipelines": [],
-  "deal_fields": { "custom": [] },
-  "person_fields": { "custom": [] }
+  "deal_pipelines": [
+    {
+      "id": 3,
+      "name": "SVB Digital",
+      "stages": [
+        { "id": 11, "name": "Anfrage eingegangen",        "order_nr": 1 },
+        { "id": 12, "name": "Qualifiziert",               "order_nr": 2 },
+        { "id": 13, "name": "Honorarangebot versendet",   "order_nr": 3 },
+        { "id": 14, "name": "Auftrag erteilt",            "order_nr": 4 },
+        { "id": 15, "name": "Termin Vereinbart",          "order_nr": 5 },
+        { "id": 16, "name": "Ongoing",                    "order_nr": 6 }
+      ]
+    }
+  ],
+  "deal_fields": {
+    "custom": [
+      {
+        "name": "Projektnummer",
+        "key": "cf70755c8b0cbecd0aee787daf193cd3c6f97716",
+        "field_type": "text",
+        "options": null
+      },
+      {
+        "name": "Projektadresse",
+        "key": "4f1d22c36dd57581282c237058b478d435997906",
+        "field_type": "address",
+        "options": null
+      },
+      {
+        "name": "Auftragsinhalt",
+        "key": "9f74f2462975642d99116290572fc483d86413f0",
+        "field_type": "enum",
+        "options": [
+          { "id": 75, "label": "Verkehrswertgutachten" },
+          { "id": 76, "label": "Beleihungswertgutachten" },
+          { "id": 77, "label": "Schadensgutachten" },
+          { "id": 78, "label": "Wertindikation" },
+          { "id": 79, "label": "Sonstiges" }
+        ]
+      },
+      {
+        "name": "Anlass",
+        "key": "cf117c0013207e13d18a2e3a6385a2a57c8d3880",
+        "field_type": "enum",
+        "options": [
+          { "id": 80, "label": "Erbschaft" },
+          { "id": 81, "label": "Scheidung" },
+          { "id": 82, "label": "Kauf" },
+          { "id": 83, "label": "Verkauf" },
+          { "id": 84, "label": "Gericht" },
+          { "id": 85, "label": "Steuerliche Bewertung" },
+          { "id": 86, "label": "Finanzierung" },
+          { "id": 87, "label": "Gegen die Finanzbehoerde" },
+          { "id": 88, "label": "Sonstiges" }
+        ]
+      },
+      {
+        "name": "Objekttyp",
+        "key": "120aa616879fcae4145d50fdacfa148d412dfbe1",
+        "field_type": "enum",
+        "options": [
+          { "id": 89, "label": "EFH" },
+          { "id": 90, "label": "DHH" },
+          { "id": 91, "label": "RH" },
+          { "id": 92, "label": "MFH" },
+          { "id": 93, "label": "ETW" },
+          { "id": 94, "label": "Grundstueck" },
+          { "id": 95, "label": "Gewerbe" },
+          { "id": 96, "label": "Sonstiges" }
+        ]
+      },
+      {
+        "name": "Gerichtsauftrag",
+        "key": "f8b7ab73d79e348668fed805f5d97680985714fd",
+        "field_type": "enum",
+        "options": [
+          { "id": 97, "label": "Ja" },
+          { "id": 98, "label": "Nein" }
+        ]
+      }
+    ]
+  },
+  "person_fields": {
+    "custom": [
+      {
+        "name": "Anrede",
+        "key": "65d4952f75c604431f71e65ee0627bf53b730086",
+        "field_type": "text",
+        "options": null
+      },
+      {
+        "name": "Empfehlungsquelle",
+        "key": "225ff5acc8ced342e9613bd377f503e86433d8c0",
+        "field_type": "enum",
+        "options": [
+          { "id": 103, "label": "Anwalt" },
+          { "id": 104, "label": "Steuerberater" },
+          { "id": 105, "label": "Bestandskunde" },
+          { "id": 106, "label": "IHK-Sachverstaendigenliste" },
+          { "id": 107, "label": "Website" },
+          { "id": 108, "label": "Empfehlung" },
+          { "id": 109, "label": "Sonstiges" }
+        ]
+      },
+      {
+        "name": "Datenschutz-Einwilligung",
+        "key": "a3cda2e9cef9b1079c48700138141863d9ec5e3b",
+        "field_type": "enum",
+        "options": [
+          { "id": 110, "label": "Ja" },
+          { "id": 111, "label": "Nein" }
+        ]
+      }
+    ]
+  }
 }
