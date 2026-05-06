@@ -439,7 +439,7 @@ function SVBDigital() {
 
   const [formData, setFormData] = useState({
     name: "", email: "", phone: "", address: "",
-    gutachtenart: "", anlass: "", message: "", dsgvo: false,
+    auftragsinhalt: "", anlass: "", freitext: "", datenschutz: false,
   });
   const [formStatus, setFormStatus] = useState(null);
   const [formLoading, setFormLoading] = useState(false);
@@ -453,7 +453,7 @@ function SVBDigital() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name || !formData.phone || !formData.dsgvo) {
+    if (!formData.name || !formData.phone || !formData.datenschutz) {
       setFormStatus("error");
       return;
     }
@@ -463,7 +463,7 @@ function SVBDigital() {
       const res = await fetch("/.netlify/functions/contact-webhook", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, empfehlungsquelle: "Website" }),
       });
       const json = await res.json();
       if (json.success) {
@@ -799,8 +799,8 @@ function SVBDigital() {
                   onChange={v => handleChange("email", v)} placeholder="ihre@email.de" type="email" />
                 <InputField C={C} FONT={FONT} label="Objektadresse" value={formData.address}
                   onChange={v => handleChange("address", v)} placeholder="Straße, PLZ Ort" />
-                <SelectField C={C} FONT={FONT} label="Gutachtenart" value={formData.gutachtenart}
-                  onChange={v => handleChange("gutachtenart", v)}
+                <SelectField C={C} FONT={FONT} label="Gutachtenart" value={formData.auftragsinhalt}
+                  onChange={v => handleChange("auftragsinhalt", v)}
                   options={["Verkehrswertgutachten", "Beleihungswertgutachten", "Schadensgutachten", "Kurzgutachten / Beratung", "Sonstiges"]} />
                 <SelectField C={C} FONT={FONT} label="Anlass" value={formData.anlass}
                   onChange={v => handleChange("anlass", v)}
@@ -813,8 +813,8 @@ function SVBDigital() {
                   display: "block", marginBottom: 6,
                 }}>Ihre Nachricht</label>
                 <textarea
-                  value={formData.message}
-                  onChange={e => handleChange("message", e.target.value)}
+                  value={formData.freitext}
+                  onChange={e => handleChange("freitext", e.target.value)}
                   placeholder="Beschreiben Sie Ihr Anliegen..."
                   rows={4}
                   style={{
@@ -835,8 +835,8 @@ function SVBDigital() {
                 fontSize: 12, color: C.inkMuted, cursor: "pointer", lineHeight: 1.55,
               }}>
                 <input
-                  type="checkbox" checked={formData.dsgvo}
-                  onChange={e => handleChange("dsgvo", e.target.checked)}
+                  type="checkbox" checked={formData.datenschutz}
+                  onChange={e => handleChange("datenschutz", e.target.checked)}
                   style={{ marginTop: 2, accentColor: C.primary }}
                 />
                 Ich bin mit der Verarbeitung meiner Daten gemäß der Datenschutzerklärung

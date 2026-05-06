@@ -1,0 +1,8 @@
+{
+  "_readme": "Diese Datei wurde NOCH NICHT generiert. Bitte ausführen: node scripts/check-hsb-sandbox-v3.js",
+  "timestamp": null,
+  "domain": "demo-sunsideai",
+  "deal_pipelines": [],
+  "deal_fields": { "custom": [] },
+  "person_fields": { "custom": [] }
+}

@@ -1,257 +1,217 @@
 import type { Handler, HandlerEvent } from "@netlify/functions";
 import { z } from "zod";
+import { dealField, dealOptionId, personField, personOptionId, stageId } from "./lib/pipedrive-fields";
 
-// ── Constants ────────────────────────────────────────────────────────────────
+// ── CORS ─────────────────────────────────────────────────────────────────────
 
-const CORS_HEADERS = {
+const CORS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
   "Content-Type": "application/json",
 };
 
-const API_TOKEN = process.env.PIPEDRIVE_API_TOKEN ?? "";
-const DOMAIN = process.env.PIPEDRIVE_DOMAIN ?? "";
-const PIPELINE_ID = Number(process.env.PIPEDRIVE_PIPELINE_ID ?? "3");
-const STAGE_ID = Number(process.env.PIPEDRIVE_STAGE_ANFRAGE_ID ?? "11");
-const BASE_URL = `https://${DOMAIN}.pipedrive.com/api/v1`;
+// ── Pipedrive HTTP helper ─────────────────────────────────────────────────────
 
-// Deal custom field keys
-const DEAL_FIELD_ADRESSE = "39a208a45af41741213be5cf85178e077cd906e0";
-const DEAL_FIELD_AUFTRAGSINHALT = "3d669162df7fb03a9affc1a50bfaade5feb80a19";
-const DEAL_FIELD_ANLASS = "bdd7ab892a3f9ffcd9b51cedd1d66179aaec93f3";
+const DOMAIN = process.env.PIPEDRIVE_DOMAIN ?? "demo-sunsideai";
+const TOKEN  = process.env.PIPEDRIVE_API_TOKEN ?? "";
+const BASE   = `https://${DOMAIN}.pipedrive.com/api/v1`;
 
-// Option ID mappings
-const AUFTRAGSINHALT_MAP: Record<string, number> = {
-  "Verkehrswertgutachten": 43,
-  "Beleihungswertgutachten": 44,
-  "Schadensgutachten": 45,
-  "Kurzgutachten / Beratung": 46,
-  "Sonstiges": 46,
-};
+const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
 
-const ANLASS_MAP: Record<string, number> = {
-  "Erbschaft / Erbauseinandersetzung": 47,
-  "Scheidung / Vermögensauseinandersetzung": 48,
-  "Kauf / Verkauf": 49,
-  "Finanzierung / Beleihung": 49,
-  "Gerichtsverfahren": 51,
-  "Steuerliche Bewertung": 52,
-  "Sonstiges": 52,
-};
-
-// ── Zod schema ───────────────────────────────────────────────────────────────
-
-const ContactFormSchema = z.object({
-  name: z.string().min(1, "Name ist erforderlich"),
-  phone: z.string().min(1, "Telefon ist erforderlich"),
-  email: z.string().email().optional().or(z.literal("")).transform(v => v || undefined),
-  address: z.string().optional(),
-  gutachtenart: z.string().optional(),
-  anlass: z.string().optional(),
-  message: z.string().optional(),
-  dsgvo: z.boolean(),
-});
-
-type ContactFormPayload = z.infer<typeof ContactFormSchema>;
-
-// ── Pipedrive helpers ────────────────────────────────────────────────────────
-
-const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
-
-async function pipedriveRequest<T>(
+async function pd<T = unknown>(
   method: "GET" | "POST",
-  path: string,
+  endpoint: string,
   body?: Record<string, unknown>,
   attempt = 1,
 ): Promise<T> {
-  await sleep(150); // stay well under the 10 req/s limit
-
-  const sep = path.includes("?") ? "&" : "?";
-  const url = `${BASE_URL}${path}${sep}api_token=${API_TOKEN}`;
-
-  const res = await fetch(url, {
+  await sleep(150);
+  const sep = endpoint.includes("?") ? "&" : "?";
+  const url = `${BASE}${endpoint}${sep}api_token=${TOKEN}`;
+  const res  = await fetch(url, {
     method,
-    headers: body ? { "Content-Type": "application/json" } : {},
+    headers: { "Content-Type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,
   });
-
-  if (res.status === 429) {
-    if (attempt > 3) throw new Error(`Pipedrive rate limit exceeded after 3 retries`);
+  const text = await res.text();
+  if (res.status === 429 && attempt <= 3) {
     await sleep(2000);
-    return pipedriveRequest<T>(method, path, body, attempt + 1);
+    return pd<T>(method, endpoint, body, attempt + 1);
   }
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => "(no body)");
-    throw new Error(`Pipedrive ${method} ${path} → HTTP ${res.status}: ${text}`);
-  }
-
-  const json = (await res.json()) as { data: T };
-  return json.data;
+  if (!res.ok) throw new Error(`Pipedrive ${method} ${endpoint} → HTTP ${res.status}: ${text}`);
+  return JSON.parse(text) as T;
 }
 
-// ── Duplicate check ──────────────────────────────────────────────────────────
+// ── Zod schema ────────────────────────────────────────────────────────────────
 
-interface PipedriveSearchResult {
-  items: Array<{ item: { id: number } }>;
+const Schema = z.object({
+  name:              z.string().min(1),
+  phone:             z.string().min(1),
+  email:             z.string().email().optional().or(z.literal("")).transform(v => v || undefined),
+  address:           z.string().optional(),
+  auftragsinhalt:    z.string().optional(),
+  anlass:            z.string().optional(),
+  empfehlungsquelle: z.string().optional(),
+  freitext:          z.string().optional(),
+  datenschutz:       z.boolean(),
+});
+
+type Payload = z.infer<typeof Schema>;
+
+// ── Business logic ────────────────────────────────────────────────────────────
+
+interface SearchResponse {
+  data: { items: Array<{ item: { id: number } }> } | null;
 }
 
-async function findExistingPerson(
-  email: string | undefined,
-  phone: string,
-): Promise<number | null> {
-  if (email) {
-    const result = await pipedriveRequest<PipedriveSearchResult>(
+async function findOrCreatePerson(payload: Payload): Promise<{ id: number; isDuplicate: boolean }> {
+  // Search by email first, then phone
+  for (const [term, field] of [
+    [payload.email, "email"],
+    [payload.phone, "phone"],
+  ] as const) {
+    if (!term) continue;
+    const res = await pd<SearchResponse>(
       "GET",
-      `/persons/search?term=${encodeURIComponent(email)}&fields=email&limit=1`,
+      `/persons/search?term=${encodeURIComponent(term)}&fields=${field}&exact_match=true&limit=1`,
     );
-    if (result?.items?.length > 0) return result.items[0].item.id;
+    const hit = res.data?.items?.[0]?.item;
+    if (hit) {
+      console.log(`[contact-webhook] Duplicate found: person_id=${hit.id}`);
+      return { id: hit.id, isDuplicate: true };
+    }
   }
 
-  const result = await pipedriveRequest<PipedriveSearchResult>(
-    "GET",
-    `/persons/search?term=${encodeURIComponent(phone)}&fields=phone&limit=1`,
-  );
-  if (result?.items?.length > 0) return result.items[0].item.id;
+  // Build person body — custom fields only when field exists in state
+  const personBody: Record<string, unknown> = {
+    name:  payload.name,
+    phone: [{ value: payload.phone, primary: true, label: "work" }],
+  };
+  if (payload.email) {
+    personBody["email"] = [{ value: payload.email, primary: true, label: "work" }];
+  }
+  try {
+    personBody[personField("Datenschutz-Einwilligung").key] =
+      personOptionId("Datenschutz-Einwilligung", payload.datenschutz ? "Ja" : "Nein");
+  } catch (e) { console.warn("[contact-webhook] Datenschutz field:", (e as Error).message); }
 
-  return null;
+  try {
+    const source = payload.empfehlungsquelle ?? "Website";
+    personBody[personField("Empfehlungsquelle").key] =
+      personOptionId("Empfehlungsquelle", source);
+  } catch (e) { console.warn("[contact-webhook] Empfehlungsquelle field:", (e as Error).message); }
+
+  const created = await pd<{ data: { id: number } }>("POST", "/persons", personBody);
+  console.log(`[contact-webhook] Person created: id=${created.data.id}`);
+  return { id: created.data.id, isDuplicate: false };
 }
 
-// ── Response helpers ─────────────────────────────────────────────────────────
-
-function jsonResponse(statusCode: number, body: Record<string, unknown>) {
-  return { statusCode, headers: CORS_HEADERS, body: JSON.stringify(body) };
+function extractCity(address: string): string | null {
+  const m = address.match(/\d{5}\s+([^\s,]+)/);
+  return m?.[1] ?? null;
 }
 
-// ── Handler ──────────────────────────────────────────────────────────────────
+async function createDeal(personId: number, payload: Payload): Promise<number> {
+  const city  = payload.address ? extractCity(payload.address) : null;
+  const parts = [payload.auftragsinhalt, city ?? "Anfrage", payload.anlass].filter(Boolean);
+  const title = parts.length > 1
+    ? `${payload.auftragsinhalt ?? "Anfrage"} ${city || ""} – ${payload.anlass ?? ""}`.trim()
+    : `Anfrage ${payload.name}`;
+
+  const dealBody: Record<string, unknown> = {
+    title,
+    stage_id:  stageId("Anfrage eingegangen"),
+    person_id: personId,
+    currency:  "EUR",
+  };
+
+  if (payload.address) {
+    try { dealBody[dealField("Projektadresse").key] = payload.address; }
+    catch (e) { console.warn("[contact-webhook] Projektadresse field:", (e as Error).message); }
+  }
+  if (payload.auftragsinhalt) {
+    try { dealBody[dealField("Auftragsinhalt").key] = dealOptionId("Auftragsinhalt", payload.auftragsinhalt); }
+    catch (e) { console.warn("[contact-webhook] Auftragsinhalt field:", (e as Error).message); }
+  }
+  if (payload.anlass) {
+    try { dealBody[dealField("Anlass").key] = dealOptionId("Anlass", payload.anlass); }
+    catch (e) { console.warn("[contact-webhook] Anlass field:", (e as Error).message); }
+  }
+
+  const created = await pd<{ data: { id: number } }>("POST", "/deals", dealBody);
+  console.log(`[contact-webhook] Deal created: id=${created.data.id}`);
+  return created.data.id;
+}
+
+async function addNoteAndActivity(dealId: number, personId: number, payload: Payload): Promise<void> {
+  // Note with freitext
+  if (payload.freitext?.trim()) {
+    await pd("POST", "/notes", {
+      content:  `<b>Anfrage über Kontaktformular</b><br><br>${payload.freitext.trim()}`,
+      deal_id:  dealId,
+    });
+  }
+
+  // Backoffice activity: task for today assigned to Niklas
+  const today = new Date().toISOString().slice(0, 10);
+  const noteLines = [
+    "Neue Anfrage über das Kontaktformular.",
+    "",
+    `Gutachtenart: ${payload.auftragsinhalt || "–"}`,
+    `Anlass: ${payload.anlass || "–"}`,
+    `Objektadresse: ${payload.address || "–"}`,
+    "",
+    "Bitte Kontakt aufnehmen und Anliegen qualifizieren.",
+  ];
+  await pd("POST", "/activities", {
+    subject:   `Lead kontaktieren: ${payload.name}`,
+    type:      "task",
+    deal_id:   dealId,
+    person_id: personId,
+    user_id:   25671674,
+    due_date:  today,
+    due_time:  "",
+    note:      noteLines.join("\n"),
+    done:      0,
+  });
+}
+
+// ── Handler ───────────────────────────────────────────────────────────────────
+
+function json(statusCode: number, body: Record<string, unknown>) {
+  return { statusCode, headers: CORS, body: JSON.stringify(body) };
+}
 
 export const handler: Handler = async (event: HandlerEvent) => {
-  // CORS preflight
-  if (event.httpMethod === "OPTIONS") {
-    return { statusCode: 200, headers: CORS_HEADERS, body: "" };
-  }
+  if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: CORS, body: "" };
+  if (event.httpMethod !== "POST")    return json(405, { success: false, error: "Method not allowed" });
 
-  if (event.httpMethod !== "POST") {
-    return jsonResponse(405, { success: false, error: "Method not allowed" });
-  }
-
-  // Parse JSON body
   let raw: unknown;
-  try {
-    raw = JSON.parse(event.body ?? "{}");
-  } catch {
-    return jsonResponse(400, { success: false, error: "Ungültiger JSON-Body" });
-  }
+  try { raw = JSON.parse(event.body ?? "{}"); }
+  catch { return json(400, { success: false, error: "Ungültiger JSON-Body" }); }
 
-  // Validate with Zod
-  const parsed = ContactFormSchema.safeParse(raw);
-  if (!parsed.success) {
-    return jsonResponse(400, { success: false, error: "Name und Telefon sind Pflichtfelder" });
-  }
+  const parsed = Schema.safeParse(raw);
+  if (!parsed.success) return json(400, { success: false, error: "Name und Telefon sind Pflichtfelder" });
+  if (!parsed.data.datenschutz) return json(400, { success: false, error: "Datenschutz-Einwilligung ist erforderlich" });
 
-  const data: ContactFormPayload = parsed.data;
-
-  if (!data.dsgvo) {
-    return jsonResponse(400, { success: false, error: "Datenschutz-Einwilligung ist erforderlich" });
-  }
+  const payload = parsed.data;
 
   try {
-    // Step 2: Duplicate check
-    const existingId = await findExistingPerson(data.email, data.phone);
-    const isDuplicate = existingId !== null;
-    let personId: number;
+    const { id: personId, isDuplicate } = await findOrCreatePerson(payload);
+    const dealId = await createDeal(personId, payload);
+    await addNoteAndActivity(dealId, personId, payload);
 
-    if (isDuplicate) {
-      personId = existingId;
-    } else {
-      // Step 3: Create person
-      const personBody: Record<string, unknown> = {
-        name: data.name,
-        phone: [{ value: data.phone, primary: true }],
-        visible_to: 3,
-      };
-      if (data.email) {
-        personBody["email"] = [{ value: data.email, primary: true }];
-      }
-
-      const person = await pipedriveRequest<{ id: number }>("POST", "/persons", personBody);
-      personId = person.id;
-    }
-
-    // Step 4 + 5: Build deal title and body
-    const dealTitle = data.gutachtenart
-      ? `Anfrage ${data.name} / ${data.gutachtenart}`
-      : `Anfrage ${data.name}`;
-
-    const dealBody: Record<string, unknown> = {
-      title: dealTitle,
-      person_id: personId,
-      pipeline_id: PIPELINE_ID,
-      stage_id: STAGE_ID,
-      visible_to: 3,
-    };
-
-    if (data.address) {
-      dealBody[DEAL_FIELD_ADRESSE] = data.address;
-    }
-    if (data.gutachtenart && AUFTRAGSINHALT_MAP[data.gutachtenart] !== undefined) {
-      dealBody[DEAL_FIELD_AUFTRAGSINHALT] = AUFTRAGSINHALT_MAP[data.gutachtenart];
-    }
-    if (data.anlass && ANLASS_MAP[data.anlass] !== undefined) {
-      dealBody[DEAL_FIELD_ANLASS] = ANLASS_MAP[data.anlass];
-    }
-
-    const deal = await pipedriveRequest<{ id: number }>("POST", "/deals", dealBody);
-
-    // Step 5b: Backoffice activity
-    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-    const activityNote = [
-      "Neue Anfrage über das Kontaktformular.",
-      "",
-      `Gutachtenart: ${data.gutachtenart || "–"}`,
-      `Anlass: ${data.anlass || "–"}`,
-      `Objektadresse: ${data.address || "–"}`,
-      "",
-      "Bitte Kontakt aufnehmen und Anliegen qualifizieren.",
-    ].join("\n");
-
-    await pipedriveRequest("POST", "/activities", {
-      subject: `Lead kontaktieren: ${data.name}`,
-      type: "task",
-      deal_id: deal.id,
-      person_id: personId,
-      user_id: 25671674,
-      due_date: today,
-      due_time: "",
-      note: activityNote,
-      done: 0,
-    });
-
-    // Step 6: Note (only when message is present)
-    if (data.message?.trim()) {
-      await pipedriveRequest("POST", "/notes", {
-        deal_id: deal.id,
-        content: `Nachricht vom Kontaktformular:\n\n${data.message.trim()}`,
-        pinned_to_deal_flag: 1,
-      });
-    }
-
-    // Step 7: Success
-    return jsonResponse(200, {
-      success: true,
-      message: "Anfrage erfolgreich erfasst",
-      deal_id: deal.id,
-      person_id: personId,
+    return json(200, {
+      success:      true,
+      message:      "Anfrage erfolgreich erfasst",
+      deal_id:      dealId,
+      person_id:    personId,
       is_duplicate: isDuplicate,
     });
   } catch (err) {
-    console.error("[contact-webhook] Pipedrive error:", err);
-
-    const message = err instanceof Error ? err.message : String(err);
-    if (message.includes("rate limit")) {
-      return jsonResponse(503, { success: false, error: "CRM vorübergehend nicht erreichbar, bitte erneut versuchen" });
-    }
-    return jsonResponse(502, { success: false, error: "CRM-Verbindung fehlgeschlagen" });
+    console.error("[contact-webhook] Error:", err);
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("rate limit")) return json(503, { success: false, error: "CRM vorübergehend nicht erreichbar" });
+    return json(502, { success: false, error: "CRM-Verbindung fehlgeschlagen", detail: msg });
   }
 };
