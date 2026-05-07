@@ -49,7 +49,7 @@ const Schema = z.object({
   phone:             z.string().min(1),
   email:             z.string().email().optional().or(z.literal("")).transform(v => v || undefined),
   address:           z.string().optional(),
-  auftragsinhalt:    z.string().optional(),
+  objekttyp:         z.string().optional(),
   anlass:            z.string().optional(),
   empfehlungsquelle: z.string().optional(),
   freitext:          z.string().optional(),
@@ -113,9 +113,9 @@ function extractCity(address: string): string | null {
 
 async function createDeal(personId: number, payload: Payload): Promise<number> {
   const city  = payload.address ? extractCity(payload.address) : null;
-  const parts = [payload.auftragsinhalt, city ?? "Anfrage", payload.anlass].filter(Boolean);
+  const parts = [payload.objekttyp, city ?? "Anfrage", payload.anlass].filter(Boolean);
   const title = parts.length > 1
-    ? `${payload.auftragsinhalt ?? "Anfrage"} ${city || ""} – ${payload.anlass ?? ""}`.trim()
+    ? `${payload.objekttyp ?? "Anfrage"} ${city || ""} – ${payload.anlass ?? ""}`.trim()
     : `Anfrage ${payload.name}`;
 
   const dealBody: Record<string, unknown> = {
@@ -129,9 +129,9 @@ async function createDeal(personId: number, payload: Payload): Promise<number> {
     try { dealBody[dealField("Projektadresse").key] = payload.address; }
     catch (e) { console.warn("[contact-webhook] Projektadresse field:", (e as Error).message); }
   }
-  if (payload.auftragsinhalt) {
-    try { dealBody[dealField("Auftragsinhalt").key] = dealOptionId("Auftragsinhalt", payload.auftragsinhalt); }
-    catch (e) { console.warn("[contact-webhook] Auftragsinhalt field:", (e as Error).message); }
+  if (payload.objekttyp) {
+    try { dealBody[dealField("Objekttyp").key] = dealOptionId("Objekttyp", payload.objekttyp); }
+    catch (e) { console.warn("[contact-webhook] Objekttyp field:", (e as Error).message); }
   }
   if (payload.anlass) {
     try { dealBody[dealField("Anlass").key] = dealOptionId("Anlass", payload.anlass); }
@@ -157,7 +157,7 @@ async function addNoteAndActivity(dealId: number, personId: number, payload: Pay
   const noteLines = [
     "Neue Anfrage über das Kontaktformular.",
     "",
-    `Gutachtenart: ${payload.auftragsinhalt || "–"}`,
+    `Immobilientyp: ${payload.objekttyp || "–"}`,
     `Anlass: ${payload.anlass || "–"}`,
     `Objektadresse: ${payload.address || "–"}`,
     "",

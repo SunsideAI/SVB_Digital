@@ -30,18 +30,6 @@
         "options": null
       },
       {
-        "name": "Auftragsinhalt",
-        "key": "9f74f2462975642d99116290572fc483d86413f0",
-        "field_type": "enum",
-        "options": [
-          { "id": 75, "label": "Verkehrswertgutachten" },
-          { "id": 76, "label": "Beleihungswertgutachten" },
-          { "id": 77, "label": "Schadensgutachten" },
-          { "id": 78, "label": "Wertindikation" },
-          { "id": 79, "label": "Sonstiges" }
-        ]
-      },
-      {
         "name": "Anlass",
         "key": "cf117c0013207e13d18a2e3a6385a2a57c8d3880",
         "field_type": "enum",

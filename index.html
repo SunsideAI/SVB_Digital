@@ -439,7 +439,7 @@ function SVBDigital() {
 
   const [formData, setFormData] = useState({
     name: "", email: "", phone: "", address: "",
-    auftragsinhalt: "", anlass: "", freitext: "", datenschutz: false,
+    objekttyp: "", anlass: "", freitext: "", datenschutz: false,
   });
   const [formStatus, setFormStatus] = useState(null);
   const [formLoading, setFormLoading] = useState(false);
@@ -799,9 +799,9 @@ function SVBDigital() {
                   onChange={v => handleChange("email", v)} placeholder="ihre@email.de" type="email" />
                 <InputField C={C} FONT={FONT} label="Objektadresse" value={formData.address}
                   onChange={v => handleChange("address", v)} placeholder="Straße, PLZ Ort" />
-                <SelectField C={C} FONT={FONT} label="Gutachtenart" value={formData.auftragsinhalt}
-                  onChange={v => handleChange("auftragsinhalt", v)}
-                  options={["Verkehrswertgutachten", "Beleihungswertgutachten", "Schadensgutachten", "Wertindikation", "Sonstiges"]} />
+                <SelectField C={C} FONT={FONT} label="Immobilientyp" value={formData.objekttyp}
+                  onChange={v => handleChange("objekttyp", v)}
+                  options={["EFH", "DHH", "RH", "MFH", "ETW", "Grundstück", "Gewerbe", "Sonstiges"]} />
                 <SelectField C={C} FONT={FONT} label="Anlass" value={formData.anlass}
                   onChange={v => handleChange("anlass", v)}
                   options={["Erbschaft", "Scheidung", "Kauf", "Verkauf", "Finanzierung", "Gericht", "Steuerliche Bewertung", "Sonstiges"]} />
